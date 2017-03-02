@@ -23,7 +23,10 @@ class WeatherPipeline(object):
                 nd = item[2]
                 ta = item[3].split('/')
                 dt = ta[0]
-                nt = ta[1]
+                if len(ta) > 1:
+                    nt = ta[1]
+                else
+                    nt = dt
                 txt = '日期：{0}\n白天：{1}({2})\n夜晚：{3}({4})\n\n'.format(
                     d,
                     dd,
