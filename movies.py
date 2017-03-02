@@ -1,5 +1,5 @@
-import os
 import json
+import subprocess
 
 class Movies():
 	def __init__( self ):
@@ -9,7 +9,7 @@ class Movies():
 		fo = open("movie/movies.json", "r+")
 		fo.truncate()
 		fo.close()
-		os.system('cd movie & scrapy crawl movie -o movies.json -t json')
+		subprocess.run('scrapy crawl movie -o movies.json -t json', shell=True, cwd='movie')
 		with open('movie/movies.json') as json_file:
 			data = json.load(json_file)
 			for x in data:

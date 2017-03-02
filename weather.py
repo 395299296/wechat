@@ -1,5 +1,5 @@
-import os
 import json
+import subprocess
 
 class Weather():
 	def __init__( self ):
@@ -13,7 +13,7 @@ class Weather():
 				if x['name'] in content:
 					city = x['pinyin'].lower()
 					break;
-			os.system('cd weather & scrapy crawl weather -a city=%s' % city)
+			subprocess.run('scrapy crawl weather -a city=%s' % city, shell=True, cwd='weather')
 			with open('weather/weather.txt', 'r', encoding="utf-8") as file_object:
 				self.contents.append({'type':'text', 'content':file_object.read()})
 
