@@ -25,7 +25,7 @@ class WeatherPipeline(object):
                 dt = ta[0]
                 if len(ta) > 1:
                     nt = ta[1]
-                else
+                else:
                     nt = dt
                 txt = '日期：{0}\n白天：{1}({2})\n夜晚：{3}({4})\n\n'.format(
                     d,
