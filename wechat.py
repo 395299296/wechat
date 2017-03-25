@@ -3,19 +3,27 @@ from random import randint
 from lxml import etree
 from imp import reload
 from urllib.parse import quote, unquote
+from collections import deque
+from collections import defaultdict
 import xml.etree.ElementTree as ET
 import requests
 import hashlib
 import config
+import reply
+import receive
 import random
 import time
 import chatter
 import os
+import threading
 
 app = Flask(__name__)
 token = '91930762d6cc738b'
 joke_url = 'http://www.qiushibaike.com/hot/page/{page}/'
-cache_content = {}
+cache_content = defaultdict(deque)
+handle_queue = deque()
+sender_queue = deque()
+lock = threading.Condition()
 
 def get_keywords():
     reload(config)
@@ -24,35 +32,88 @@ def get_keywords():
 
 def get_content(content):
     reload(config)
-    contentlist = []
+    contentlist = deque()
     for x in config.Config:
         if x in content:
             module = __import__(config.Config[x][0]) # import module
             reload(module)
             c = getattr(module,config.Config[x][1])
             try:
-                if module in cache_content and cache_content[module]['time'] >= time.time() - 15:
-                    contentlist = cache_content[module]['list']
-                else:
-                    contentlist = c().getContent(content)
-                    cache_content[module] = {'time':time.time(),'list':contentlist}
+                contentlist = cache_content[module]
+                if len(contentlist) == 0:
+                    contentlist = deque(c().getContent(content))
+                    cache_content[module] = contentlist
+                return contentlist.popleft()
             except Exception as e:
                 print(str(e))
                 raise e
             break
     else:
-        if content in cache_content and cache_content[content]['time'] >= time.time() - 15:
-            contentlist = cache_content[content]['list']
-        else:
+        contentlist = cache_content[content]
+        if len(contentlist) == 0:
             reload(chatter)
-            response = chatter.Chatter().getContent(content)
-            cache_content[content] = {'time':time.time(),'data':response}
-            contentlist = response
-
-    if len(contentlist) > 0:
-        return contentlist[randint(0, len(contentlist)-1)]
+            contentlist = deque([chatter.Chatter().getContent(content)])
+            cache_content[content] = contentlist
+        return contentlist.popleft()
 
     return {'type':'text', 'content':content}
+
+class Handler(threading.Thread):
+    def __init__(self, lock):
+        self._lock = lock
+        threading.Thread.__init__(self)
+ 
+    def run(self):
+        while True:
+            if self._lock.acquire():
+                tick()
+                self._lock.release()
+            time.sleep(0.05)
+
+    def tick(self):
+        if len(handle_queue) == 0:
+            return
+
+        recMsg = handle_queue.popleft()
+        toUser = recMsg.FromUserName
+        fromUser = recMsg.ToUserName
+        replyMsg = reply.Msg(toUser, fromUser)
+        if isinstance(recMsg, receive.TextMsg):
+            content = recMsg.Content
+            response = get_content(content)
+            msgType = response['type']
+            content = response['content']
+            if msgType == 'text':
+                replyMsg = reply.TextMsg(toUser, fromUser, content)
+            elif msgType == 'news':
+                replyMsg = reply.NewsMsg(toUser, fromUser, response['title'], response['content'], response['pic_url'], response['url'])
+        elif isinstance(recMsg, receive.ImageMsg):
+            pass
+        elif isinstance(recMsg, receive.EventMsg):
+            if recMsg.Event == 'subscribe':
+                content = config.Welcome.format(key=get_keywords())
+                replyMsg = reply.TextMsg(toUser, fromUser, content)
+
+        sender_queue.append(replyMsg)
+
+class Sender(threading.Thread):
+    def __init__(self, lock):
+        self._lock = lock
+        threading.Thread.__init__(self)
+ 
+    def run(self):
+        while True:
+            if self._lock.acquire():
+                tick()
+                self._lock.release()
+            time.sleep(0.05)
+
+    def tick(self):
+        if len(sender_queue) == 0:
+            return
+
+        replyMsg = sender_queue.popleft()
+        replyMsg.send()
 
 @app.route('/girl/<filename>',methods=['GET'])
 def download(filename):
@@ -88,58 +149,32 @@ def wechat_auth():
 
     if request.method == 'POST':
         xml_str = request.stream.read()
-        xml = ET.fromstring(xml_str)
-        toUserName=xml.find('ToUserName').text
-        fromUserName = xml.find('FromUserName').text
-        createTime = xml.find('CreateTime').text
-        msgType = xml.find('MsgType').text
-        if msgType != 'text':
-            if msgType == 'event':
-                msgType = 'text'
-                event = xml.find('Event').text
-                if event == 'subscribe':
-                    content = config.Welcome.format(key=get_keywords())
-                else:
-                    content = 'success'
-            else:
-                content = '格式错误'
-        else:
-            content = xml.find('Content').text
-            print(content)
-            msgId = xml.find('MsgId').text
+        # print('Coming Post', xml_str)
+        recMsg = receive.parse_xml(xml_str)
+        toUser = recMsg.FromUserName
+        fromUser = recMsg.ToUserName
+        replyMsg = reply.Msg(toUser, fromUser)
+        if isinstance(recMsg, receive.TextMsg):
+            content = recMsg.Content
             response = get_content(content)
             msgType = response['type']
             content = response['content']
+            if msgType == 'text':
+                replyMsg = reply.TextMsg(toUser, fromUser, content)
+            elif msgType == 'news':
+                replyMsg = reply.NewsMsg(toUser, fromUser, response['title'], response['content'], response['pic_url'], response['url'])
+        elif isinstance(recMsg, receive.ImageMsg):
+            pass
+        elif isinstance(recMsg, receive.EventMsg):
+            if recMsg.Event == 'subscribe':
+                content = config.Welcome.format(key=get_keywords())
+                replyMsg = reply.TextMsg(toUser, fromUser, content)
 
-        if msgType == 'text':
-            reply = '''
-                    <xml>
-                    <ToUserName><![CDATA[%s]]></ToUserName>
-                    <FromUserName><![CDATA[%s]]></FromUserName>
-                    <CreateTime>%s</CreateTime>
-                    <MsgType><![CDATA[text]]></MsgType>
-                    <Content><![CDATA[%s]]></Content>
-                    </xml>
-                    ''' % (fromUserName, toUserName, createTime, content)
-        elif msgType == 'news':
-            reply = '''
-                    <xml>
-                    <ToUserName><![CDATA[%s]]></ToUserName>
-                    <FromUserName><![CDATA[%s]]></FromUserName>
-                    <CreateTime>%s</CreateTime>
-                    <MsgType><![CDATA[news]]></MsgType>
-                    <ArticleCount>1</ArticleCount>
-                    <Articles>
-                        <item>
-                            <Title><![CDATA[%s]]></Title> 
-                            <Description><![CDATA[%s]]></Description>
-                            <PicUrl><![CDATA[%s]]></PicUrl>
-                            <Url><![CDATA[%s]]></Url>
-                        </item>
-                    </Articles>
-                    </xml>
-                    ''' % (fromUserName, toUserName, createTime, response['title'], response['content'], response['pic_url'], response['url'])
-        return reply
+        return replyMsg.send()
 
 if __name__ == "__main__":
+    # h = Handler(lock)
+    # h.start()
+    # s = Sender(lock)
+    # s.start()
     app.run(host='0.0.0.0', port=8020)
