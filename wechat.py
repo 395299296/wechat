@@ -130,6 +130,9 @@ def wechat_auth():
         if request.method == 'GET':
             data = request.args
             print('Coming Get', data)
+            if not data:
+                return flask.render_template('index.htm')
+
             test = data.get('test','')
             if test != '':
                 content = get_content(test)
@@ -184,4 +187,4 @@ if __name__ == "__main__":
     # h.start()
     # s = Sender(lock)
     # s.start()
-    app.run(host='0.0.0.0', port=8020)
+    app.run(host='0.0.0.0', port=80)
