@@ -124,6 +124,10 @@ def download(filename):
             return send_from_directory('girl', filename)
         abort(404)
 
+@app.route('/')
+def index():
+    return render_template('index.htm')
+
 @app.route('/',methods=['GET','POST'])
 def wechat_auth():
     try:
@@ -131,7 +135,7 @@ def wechat_auth():
             data = request.args
             print('Coming Get', data)
             if not data:
-                return render_template('index.htm')
+                return ''
 
             test = data.get('test','')
             if test != '':
