@@ -126,51 +126,58 @@ def download(filename):
 
 @app.route('/',methods=['GET','POST'])
 def wechat_auth():
-    if request.method == 'GET':
-        data = request.args
-        print('Coming Get', data)
-        test = data.get('test','')
-        if test != '':
-            content = get_content(test)
-            return content['content']
-        
-        signature = data.get('signature','')
-        if signature == '':
-            return 'error'
+    try:
+        if request.method == 'GET':
+            data = request.args
+            print('Coming Get', data)
+            test = data.get('test','')
+            if test != '':
+                content = get_content(test)
+                return content['content']
+            
+            signature = data.get('signature','')
+            if signature == '':
+                return 'error'
 
-        timestamp = data.get('timestamp','')
-        nonce = data.get('nonce','')
-        echostr = data.get('echostr','')
-        s = [timestamp,nonce,token]
-        s.sort()
-        s = ''.join(s).encode('utf8')
-        if (hashlib.sha1(s).hexdigest() == signature):
+            timestamp = data.get('timestamp','')
+            nonce = data.get('nonce','')
+            echostr = data.get('echostr','')
+            s = [timestamp,nonce,token]
+            s.sort()
+            s = ''.join(s).encode('utf8')
+            if (hashlib.sha1(s).hexdigest() != signature):
+                return 'failed'
+            
             return make_response(echostr)
 
-    if request.method == 'POST':
-        xml_str = request.stream.read()
-        # print('Coming Post', xml_str)
-        recMsg = receive.parse_xml(xml_str)
-        toUser = recMsg.FromUserName
-        fromUser = recMsg.ToUserName
-        replyMsg = reply.Msg(toUser, fromUser)
-        if isinstance(recMsg, receive.TextMsg):
-            content = recMsg.Content
-            response = get_content(content)
-            msgType = response['type']
-            content = response['content']
-            if msgType == 'text':
-                replyMsg = reply.TextMsg(toUser, fromUser, content)
-            elif msgType == 'news':
-                replyMsg = reply.NewsMsg(toUser, fromUser, response['title'], response['content'], response['pic_url'], response['url'])
-        elif isinstance(recMsg, receive.ImageMsg):
-            pass
-        elif isinstance(recMsg, receive.EventMsg):
-            if recMsg.Event == 'subscribe':
-                content = config.Welcome.format(key=get_keywords())
-                replyMsg = reply.TextMsg(toUser, fromUser, content)
+        if request.method == 'POST':
+            xml_str = request.stream.read()
+            # print('Coming Post', xml_str)
+            recMsg = receive.parse_xml(xml_str)
+            toUser = recMsg.FromUserName
+            fromUser = recMsg.ToUserName
+            replyMsg = reply.Msg(toUser, fromUser)
+            if isinstance(recMsg, receive.TextMsg):
+                content = recMsg.Content
+                response = get_content(content)
+                msgType = response['type']
+                content = response['content']
+                if msgType == 'text':
+                    replyMsg = reply.TextMsg(toUser, fromUser, content)
+                elif msgType == 'news':
+                    replyMsg = reply.NewsMsg(toUser, fromUser, response['title'], response['content'], response['pic_url'], response['url'])
+            elif isinstance(recMsg, receive.ImageMsg):
+                pass
+            elif isinstance(recMsg, receive.EventMsg):
+                if recMsg.Event == 'subscribe':
+                    content = config.Welcome.format(key=get_keywords())
+                    replyMsg = reply.TextMsg(toUser, fromUser, content)
 
-        return replyMsg.send()
+            return replyMsg.send()
+            
+    except Exception as e:
+        print(str(e))
+        return ''
 
 if __name__ == "__main__":
     # h = Handler(lock)
