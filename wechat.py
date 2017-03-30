@@ -1,4 +1,4 @@
-from flask import Flask, request, make_response, send_from_directory, abort
+from flask import Flask, request, make_response, send_from_directory, abort, render_template
 from random import randint
 from lxml import etree
 from imp import reload
@@ -131,7 +131,7 @@ def wechat_auth():
             data = request.args
             print('Coming Get', data)
             if not data:
-                return flask.render_template('index.htm')
+                return render_template('index.htm')
 
             test = data.get('test','')
             if test != '':
