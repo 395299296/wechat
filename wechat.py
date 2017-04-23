@@ -124,10 +124,6 @@ def download(filename):
             return send_from_directory('girl', filename)
         abort(404)
 
-@app.route('/')
-def index():
-    return render_template('index.htm')
-
 @app.route('/',methods=['GET','POST'])
 def wechat_auth():
     try:
@@ -191,4 +187,4 @@ if __name__ == "__main__":
     # h.start()
     # s = Sender(lock)
     # s.start()
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=8080)
