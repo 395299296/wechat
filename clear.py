@@ -33,6 +33,7 @@ input_dir = 'girls/'
 remove_dirs = []
 remove_files = []
 remove_imgs = []
+large_files = []
 for parent,dirnames,filenames in os.walk(input_dir):
     if len(dirnames) != 0:
         print(parent, len(dirnames), len(filenames))
@@ -59,6 +60,8 @@ for parent,dirnames,filenames in os.walk(input_dir):
             extname = os.path.splitext(x)[1]
             if extname == '.jpg':
                 try:
+                    if os.path.getsize(file) > 1024 * 1024:
+                        large_files.append(file)
                     img = Image.open(file)
                     if img.size[0] < 100 or img.size[1] < 100:
                         remove_imgs.append(file)
@@ -66,6 +69,8 @@ for parent,dirnames,filenames in os.walk(input_dir):
                     print(e)
 
 print('remove', len(remove_dirs), len(remove_files), len(remove_imgs))
+for x in large_files:
+    print(x)
 
 for x in remove_dirs:
     rmdir = input_dir + x

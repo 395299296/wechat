@@ -1,6 +1,7 @@
 import re
 
-s = '电话:18910248080，微信号：weiweiq1234，联系QQ号码12345678，陌陌yueba4321,INSTAGRAMlalalademaxiya三围:83-62-88鞋码:37，请备注\n'
+s = '电话:18910248080，微信号：18910248080QQ号码12345678，陌陌yueba4321,INSTAGRAMlalalademaxiya三围:83-62-88鞋码:37，请备注\n'
+# s = 'QQ:402176266（备注淘女郎）'
 pattern = re.compile(r'三围.*?\d{2}\D?\d{2}\D?\d{2}', re.IGNORECASE)
 sanwei = re.findall(pattern, s)
 if sanwei:
@@ -8,7 +9,7 @@ if sanwei:
     sanwei = re.findall(pattern, sanwei[0])
     print('三围:'+sanwei[0])
 
-pattern = re.compile(r'1\d{10}', re.IGNORECASE)
+pattern = re.compile(r'1[3|4|5|8]\d{9}', re.IGNORECASE)
 phone = re.findall(pattern, s)
 if phone:
     print('手机:'+phone[0])
@@ -18,12 +19,14 @@ wechat = re.findall(pattern, s)
 if wechat:
     pattern = re.compile(r'[A-Za-z0-9_]+', re.IGNORECASE)
     wechat = re.findall(pattern, wechat[0])
+    if phone[0] in wechat[0]:
+    	wechat[0] = phone[0]
     print('微信:'+wechat[0])
 
-pattern = re.compile(r'Q.*?[1-9]\\d{4,10}', re.IGNORECASE)
+pattern = re.compile(r'Q.*?[1-9]\d{4,10}', re.IGNORECASE)
 qq = re.findall(pattern, s)
 if qq:
-    pattern = re.compile(r'[1-9]\\d{4,10}', re.IGNORECASE)
+    pattern = re.compile(r'[1-9]\d{4,10}', re.IGNORECASE)
     qq = re.findall(pattern, qq[0])
     print('QQ:'+qq[0])
 
@@ -43,5 +46,5 @@ if instagram:
     instagram = re.findall(pattern, instagram)
     print('Instagram:'+instagram[0])
 
-if s[-1] == '\n':
+if s.startswith('QQ:'):
     print("======================")
